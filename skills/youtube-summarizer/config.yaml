@@ -1,0 +1,13 @@
+# YouTube Summarizer 配置文件
+
+# 工作目录，存放字幕和摘要文件
+workspace_dir: ~/Workspace/Gang/jinxiaozi/youtube
+
+# 短视频阈值（分钟），低于此值直接摘要，否则分段处理
+short_video_threshold_minutes: 30
+
+# 分段时长（分钟）
+segment_minutes: 10
+
+# 段间重叠时长（分钟），避免话题在边界处被切断
+overlap_minutes: 1
