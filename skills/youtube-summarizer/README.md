@@ -16,10 +16,6 @@
 youtube-summarizer/
 ├── SKILL.md              # Skill 主定义与执行流程
 ├── config.yaml           # 工作目录、阈值、分段参数
-├── prompts/              # 摘要提示词模板
-│   ├── direct_summary.md     # 短视频直接摘要
-│   ├── segment_summary.md    # 长视频分段摘要
-│   └── merge_summary.md      # 长视频合并摘要
 └── scripts/
     └── fetch_transcript.py   # 字幕拉取与分段脚本
 ```
