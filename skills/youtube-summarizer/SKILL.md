@@ -9,61 +9,45 @@ allowed-tools: Bash Read Write
 
 对 YouTube 视频字幕进行结构化摘要，帮助用户快速判断视频是否值得观看。
 
-## 配置
+## 环境变量
 
-配置文件位于 `${CLAUDE_SKILL_DIR}/config.yaml`，主要参数：
+- `YOUTUBE_SUMMARIZER_WORKSPACE`：工作目录，存放字幕和摘要。需用户在 `~/.claude/settings.json` 的 `env` 字段中配置。
 
-- `workspace_dir`: 工作目录，存放字幕和摘要文件
-- `short_video_threshold_minutes`: 短视频阈值（默认 30 分钟）
-- `segment_minutes`: 分段时长（默认 10 分钟）
-- `overlap_minutes`: 段间重叠（默认 1 分钟）
+其余参数（短视频阈值、分段时长、段间重叠）作为 `fetch_transcript.py` 的默认值存在，用户若需覆盖可在调用时附加对应 CLI flag（详见 `python fetch_transcript.py save --help`）。
 
 ## 执行流程
 
 收到用户提供的 YouTube 链接后，按以下步骤执行：
 
-### 第一步：读取配置
+### 第一步：获取并保存字幕
 
-```bash
-python -c "
-import yaml
-with open('${CLAUDE_SKILL_DIR}/config.yaml') as f:
-    config = yaml.safe_load(f)
-print(config)
-"
-```
-
-记住配置中的 `workspace_dir` 路径，后续步骤会用到。
-
-### 第二步：获取并保存字幕
-
-先检查 `{workspace_dir}/transcripts/{video_id}.json` 是否已存在。如果已存在，直接使用本地字幕，不重新拉取。
+先检查 `$YOUTUBE_SUMMARIZER_WORKSPACE/transcripts/{video_id}.json` 是否已存在。如果已存在，直接使用本地字幕，不重新拉取。
 
 如果不存在，对用户提供的每个 YouTube 链接，运行：
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/fetch_transcript.py save <YouTube链接> <语言代码>
+python ${CLAUDE_SKILL_DIR}/scripts/fetch_transcript.py save <YouTube链接> [--lang <语言代码>]
 ```
 
-- 语言代码可选，默认为 `en`。如果用户指定了语言或视频是中文的，使用对应语言代码（如 `zh`）。
-- 如果获取失败，先用 `list` 命令查看可用字幕语言，再用合适的语言代码重试：
+- `--lang` 可选，默认为 `en`。如果用户指定了语言或视频是中文的，使用对应语言代码（如 `zh`）。
+- 如果获取失败，先用 `list` 子命令查看可用字幕语言，再用合适的语言代码重试：
 
 ```bash
 python ${CLAUDE_SKILL_DIR}/scripts/fetch_transcript.py list <YouTube链接>
 ```
 
-字幕会自动保存到 `{workspace_dir}/transcripts/{video_id}.json`。
+字幕会自动保存到 `$YOUTUBE_SUMMARIZER_WORKSPACE/transcripts/{video_id}.json`。
 
-### 第三步：判断摘要策略
+### 第二步：判断摘要策略
 
-读取保存的字幕文件，检查视频总时长：
+根据上一步 `save` 命令的输出判断：
 
-- **短视频（< 30 分钟）**：走「直接摘要」流程
-- **长视频（≥ 30 分钟）**：走「分段摘要 + 合并」流程
+- 输出包含「短视频，无需切段」→ 走「直接摘要」流程
+- 输出包含「长视频，已切分为 N 段」→ 走「分段摘要 + 合并」流程
 
-先检查 `{workspace_dir}/summaries/{video_id}.md` 是否已存在。如果已存在，询问用户是否要重新生成。
+先检查 `$YOUTUBE_SUMMARIZER_WORKSPACE/summaries/{video_id}.md` 是否已存在。如果已存在，询问用户是否要重新生成。
 
-### 第四步：生成摘要
+### 第三步：生成摘要
 
 #### 短视频：直接摘要
 
@@ -109,7 +93,7 @@ python ${CLAUDE_SKILL_DIR}/scripts/fetch_transcript.py list <YouTube链接>
 
 #### 长视频：分段摘要 + 合并
 
-第二步的 `save` 命令已经自动完成了切段并保存为独立文件。输出中会列出每段的文件路径，如：
+第一步的 `save` 命令已经自动完成了切段并保存为独立文件。输出中会列出每段的文件路径，如：
 
 ```
 长视频，已切分为 6 段:
@@ -124,7 +108,7 @@ python ${CLAUDE_SKILL_DIR}/scripts/fetch_transcript.py list <YouTube链接>
 
 1. 用 Read 工具读取段文件（如 `seg_01.txt`）
 2. 根据段内文本生成该段的摘要
-3. 将段摘要保存到 `{workspace_dir}/summaries/{video_id}/` 目录下，文件名与段文件对应（如 `seg_01_summary.md`）
+3. 将段摘要保存到 `$YOUTUBE_SUMMARIZER_WORKSPACE/summaries/{video_id}/` 目录下，文件名与段文件对应（如 `seg_01_summary.md`）
 4. 处理下一段，直到所有段完成
 
 每段的摘要格式：
@@ -147,7 +131,7 @@ python ${CLAUDE_SKILL_DIR}/scripts/fetch_transcript.py list <YouTube链接>
 
 **第二轮：合并摘要**
 
-读取 `{workspace_dir}/summaries/{video_id}/` 目录下所有段摘要文件，将内容合并后生成最终结构化摘要。
+读取 `$YOUTUBE_SUMMARIZER_WORKSPACE/summaries/{video_id}/` 目录下所有段摘要文件，将内容合并后生成最终结构化摘要。
 
 合并要求：
 1. 去除段与段之间的重复内容（因为分段时有时间重叠）。
@@ -183,10 +167,10 @@ python ${CLAUDE_SKILL_DIR}/scripts/fetch_transcript.py list <YouTube链接>
 用 2-3 句话说明这个视频值得看的理由，或者可以跳过的理由。
 ```
 
-### 第五步：保存摘要
+### 第四步：保存摘要
 
-- **短视频**: 将摘要保存到 `{workspace_dir}/summaries/{video_id}.md`
-- **长视频**: 最终合并摘要保存到 `{workspace_dir}/summaries/{video_id}/final.md`（段摘要已在第四步保存）
+- **短视频**: 将摘要保存到 `$YOUTUBE_SUMMARIZER_WORKSPACE/summaries/{video_id}.md`
+- **长视频**: 最终合并摘要保存到 `$YOUTUBE_SUMMARIZER_WORKSPACE/summaries/{video_id}/final.md`（段摘要已在第三步保存）
 
 保存完成后，向用户展示摘要内容，并告知保存路径。
 

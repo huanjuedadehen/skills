@@ -15,21 +15,34 @@
 ```
 youtube-summarizer/
 ├── SKILL.md              # Skill 主定义与执行流程
-├── config.yaml           # 工作目录、阈值、分段参数
 └── scripts/
-    └── fetch_transcript.py   # 字幕拉取与分段脚本
+    └── fetch_transcript.py   # 字幕拉取与分段脚本（含默认参数和 CLI flag）
 ```
 
 ## 配置
 
-编辑 `config.yaml`：
+### 环境变量（必填）
 
-| 字段 | 说明 | 默认值 |
+`YOUTUBE_SUMMARIZER_WORKSPACE`：字幕和摘要的工作目录。推荐在 `~/.claude/settings.json` 的 `env` 字段中配置，例如：
+
+```json
+{
+  "env": {
+    "YOUTUBE_SUMMARIZER_WORKSPACE": "~/Workspace/youtube"
+  }
+}
+```
+
+### CLI 参数（可选）
+
+其余参数以脚本默认值存在，如需覆盖可在调用 `save` 子命令时附加：
+
+| Flag | 说明 | 默认值 |
 | --- | --- | --- |
-| `workspace_dir` | 字幕和摘要的工作目录 | `~/Workspace/Gang/jinxiaozi/youtube` |
-| `short_video_threshold_minutes` | 短视频阈值（分钟），低于此值走直接摘要流程 | `30` |
-| `segment_minutes` | 分段时长（分钟） | `10` |
-| `overlap_minutes` | 段间重叠时长（分钟），避免话题在边界被切断 | `1` |
+| `--short-threshold-minutes` | 短视频阈值（分钟），低于此值不切段 | `30` |
+| `--segment-minutes` | 分段时长（分钟） | `10` |
+| `--overlap-minutes` | 段间重叠时长（分钟），避免话题在边界被切断 | `1` |
+| `--lang` | 字幕语言代码 | `en` |
 
 ## 使用方式
 
@@ -43,12 +56,12 @@ youtube-summarizer/
 
 ## 输出位置
 
-- 字幕：`{workspace_dir}/transcripts/{video_id}.json`
-- 长视频分段：`{workspace_dir}/transcripts/{video_id}/seg_XX.txt`
-- 短视频摘要：`{workspace_dir}/summaries/{video_id}.md`
-- 长视频段摘要与最终合并：`{workspace_dir}/summaries/{video_id}/seg_XX_summary.md` 及 `final.md`
+- 字幕：`$YOUTUBE_SUMMARIZER_WORKSPACE/transcripts/{video_id}.json`
+- 长视频分段：`$YOUTUBE_SUMMARIZER_WORKSPACE/transcripts/{video_id}/seg_XX.txt`
+- 短视频摘要：`$YOUTUBE_SUMMARIZER_WORKSPACE/summaries/{video_id}.md`
+- 长视频段摘要与最终合并：`$YOUTUBE_SUMMARIZER_WORKSPACE/summaries/{video_id}/seg_XX_summary.md` 及 `final.md`
 
 ## 依赖
 
-- Python 3，`pyyaml`
+- Python 3
 - `fetch_transcript.py` 所需的 YouTube 字幕拉取库（见脚本内 import）
